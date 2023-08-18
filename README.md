@@ -25,9 +25,12 @@ The code is a mix of notebooks and a `py` file:
 
 
 **Data**:
-[10-K statements from SEC EDGAR](https://www.sec.gov/edgar).
-[Cyber corpus from MITRE ATTACK](https://attack.mitre.org/).
-[Stock information from WRDS](https://wrds-www.wharton.upenn.edu/).
+
+10-K statements from [SEC EDGAR](https://www.sec.gov/edgar).
+
+Cyber corpus from [MITRE ATTACK](https://attack.mitre.org/).
+
+Stock information from [WRDS](https://wrds-www.wharton.upenn.edu/).
 
 
 ------
