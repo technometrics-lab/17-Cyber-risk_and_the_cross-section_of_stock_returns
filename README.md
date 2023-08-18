@@ -42,11 +42,11 @@ Short description of the files:
 | ------------- |:-------------:| 
 | function_definitions.py | defines of all the functions used in the other files |
 | Reproduce_Florackis.ipynb | reproduces the work of [Florackis, Michaely and Weber](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3767307)| 
-| Project_data_acquisition.ipynb | downloads and merges data relating to stock information and 10-k statements |
-| Project_doc2vec.ipynb | trains doc2vec models and computes the vector representation of the 10-k statements and the corresponding cyber risk scores|  
+| Project_data_acquisition.ipynb | downloads and merges data of stock returns, stock characteristics and 10-k statements |
+| Project_doc2vec.ipynb | trains doc2vec models, computes the vector representation of the 10-k statements and the corresponding cyber risk scores|  
 | Project_analysis1.ipynb | displays properties of the cyber risk scores, performs portfolio sorts and robustness tests|  
-| Project_analysis2.ipynb | performs Fama-Macbeth regressions, Bayesian factor model selection and Instrumented principal component analysis |  
-| tests/...  | test files (test BERT, doc2vec,...) |
+| Project_analysis2.ipynb | performs Fama-Macbeth regressions, Bayesian factor model selection and instrumented principal component analysis |  
+| tests/...  | folder containing test files (testing BERT, doc2vec,...) |
 
 
 Each file contains more details and comments. 
