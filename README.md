@@ -46,7 +46,7 @@ Short description of the files:
 | Project_doc2vec.ipynb | trains doc2vec models, computes the vector representation of the 10-k statements and the corresponding cyber risk scores|  
 | Project_analysis1.ipynb | displays properties of the cyber risk scores, performs portfolio sorts and robustness tests|  
 | Project_analysis2.ipynb | performs Fama-Macbeth regressions, Bayesian factor model selection and instrumented principal component analysis | 
-| Project_analysis3.ipynb | compares my cyber risk measure to the one of Florackis et al.|
+| Project_analysis3.ipynb | compares my cyber risk measure to the one of [Florackis, Michaely and Weber](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3767307)|
 | tests/...  | folder containing test files (testing BERT, doc2vec,...) |
 
 
