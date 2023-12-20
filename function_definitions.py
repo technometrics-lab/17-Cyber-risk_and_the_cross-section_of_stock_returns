@@ -119,10 +119,23 @@ def read_cyber_description(url):
 
 
 #function that takes text as input and returns a list of tokennized sentences
-def get_tokens(text, ticker = None, raw = True, merge = True, sentences = True):
+def get_tokens(text, ticker = None, raw = True, merge = True, sentences = True, find_item1A_ = False, sleep = True):
     #if the input is raw, extract the text
-    if(raw):
-        document = get_text(text)
+    if raw:
+        if find_item1A_:
+            document, item1A = get_text(text, find_item1A_ = True)
+            if item1A != 'ITEM 1A NOT FOUND':
+                #delete extra spaces and short sentences
+                item1A = re.sub('\n',' ', item1A)
+                item1A = re.sub(r'&nbsp', ' ', item1A)
+                item1A = re.sub(r'\xa0;', ' ', item1A)
+                item1A = re.sub(r'&#\d+;', ' ', item1A)
+                item1A = re.sub('<.*?>', ' ', item1A)
+                item1A = re.sub('\s{2,}',' ', item1A)
+                lines_1A = sent_tokenize(item1A)
+                lines_1A = [line for line in lines_1A if len(word_tokenize(line)) > 15]
+        else:
+            document = get_text(text)
         #delete extra spaces and short sentences
         document = re.sub('\n',' ', document)
         document = re.sub(r'&nbsp', ' ', document)
@@ -132,12 +145,32 @@ def get_tokens(text, ticker = None, raw = True, merge = True, sentences = True):
         document = re.sub('\s{2,}',' ', document)
         lines = sent_tokenize(document)
         lines = [line for line in lines if len(word_tokenize(line)) > 15]
+        
+        if find_item1A_:
+            if item1A != 'ITEM 1A NOT FOUND':
+                try:
+                    indices_lines = [i for i, x in enumerate(lines) if x in lines_1A]
+                    indices_lines_1A = [lines_1A.index(x) for x in lines if x in lines_1A]
+                    
+                    first_1A = indices_lines[np.argmin(indices_lines_1A)]
+                    indices_lines_1A = indices_lines_1A[np.argmin(indices_lines_1A):]
+                    last_1A = indices_lines[np.argmax(indices_lines_1A)]
+                    
+                    if last_1A < first_1A:
+                        first_1A = np.nan
+                        last_1A = np.nan
+                except:
+                    first_1A = np.nan
+                    last_1A = np.nan
+            else:
+                first_1A = np.nan
+                last_1A = np.nan
     else:
         if sentences:
             lines = sent_tokenize(text)
         else:
             lines = [text]
-        
+    
     #tokenize each line
     if ticker:
         tokens_per_line = {}
@@ -159,14 +192,21 @@ def get_tokens(text, ticker = None, raw = True, merge = True, sentences = True):
         #tokens = stem(tokens)
         if(len(tokens)):
             temp.append(tokens)
+
     #merge consecutive sentences to have paragraphs about the same length as the techniques and tactics            
     if merge:
-        merged = merge_sentences(temp)
+        if find_item1A_:
+            merged, merge_list = merge_sentences(temp, ret_merge_list = True)
+        else:
+            merged = merge_sentences(temp)
         if merged:
             if ticker:
                 tokens_per_line[ticker] = merged
             else:
-                tokens_per_line = merged  
+                tokens_per_line = merged 
+            if find_item1A_ and not np.isnan(first_1A) and not np.isnan(last_1A):
+                first_1A = first_1A - sum(merge_list[:first_1A+1])
+                last_1A = last_1A - sum(merge_list[:last_1A+1])
         else:
             if ticker:
                 tokens_per_line[ticker] = temp
@@ -177,8 +217,19 @@ def get_tokens(text, ticker = None, raw = True, merge = True, sentences = True):
             tokens_per_line[ticker] = temp
         else:
             tokens_per_line = temp
-            
-    return tokens_per_line
+    
+    if sleep:
+        time.sleep(0.5)
+    
+    if find_item1A_:
+        if ticker:
+            idx_1A = {}
+            idx_1A[ticker] = [first_1A, last_1A]
+        else:
+            idx_1A = [first_1A, last_1A]
+        return idx_1A
+    else:
+        return tokens_per_line
 
 
 #function that takes a list of sentences and merges them to have paragraphs with a length
@@ -188,7 +239,7 @@ def merge_sentences(sentences, ret_merge_list = False):
     avg_line_len = np.mean([len(t) for t in sentences], dtype = int)
     #if avg len is shorter than desired len, merge sentences
     if (desired_len/avg_line_len > 1):
-        merge_list = [None]
+        merge_list = [0]
         merged = []
         merged.append(sentences[0])
         i = 1
@@ -200,22 +251,25 @@ def merge_sentences(sentences, ret_merge_list = False):
                 merged.append(sentences[i])
                 j += 1
                 i += 1
-                merge_list.append(None)
+                merge_list.append(0)
                 continue
             #otherwise merge the sentence on the current paragraph
             merged[j].extend(sentences[i])
-            merge_list.append('merge')
+            merge_list.append(1)
             i += 1
         if ret_merge_list:
             return merged, merge_list
         else:
             return merged
     else:
-        return None
+        if ret_merge_list:
+            return None, None
+        else:
+            return None
 
     
 #function that takes as input raw text from a 10-k statement and returns the cleaned text
-def get_text(raw_text):
+def get_text(raw_text, find_item1A_ = False):
     #Regex to find <DOCUMENT> tags
     document_start_pattern = re.compile(r'<DOCUMENT>')
     document_end_pattern = re.compile(r'</DOCUMENT>')
@@ -235,14 +289,117 @@ def get_text(raw_text):
             #only retain the first occurance
             if not len(document):
                 document = raw_text[document_start:document_end]
-                
+    
+    if find_item1A_:
+        item1A_raw = find_item1A(document)
+        soup = BeautifulSoup(item1A_raw, "html.parser")
+        # delete all script and style elements
+        for script in soup(["script", "style"]):
+            script.extract()
+        item1A = soup.get_text()
+        
     soup = BeautifulSoup(document, "html.parser")
     # delete all script and style elements
     for script in soup(["script", "style"]):
         script.extract()
     document = soup.get_text()
+    if find_item1A_:
+        return document, item1A
+    else:   
+        return document
 
-    return document
+
+def find_item1A(document):
+    #we are interested in Item 1A risk factors
+    #in the raw txt file it is either Item 1A, Item&#1601A,...
+    #Also find Item 1B, Item 2, Item 3, Item 4 and Item 5 to know where 1A ends
+    pattern = re.compile(r'(((>|\n)(|\s+)(i|I)(|(<[^>]+>)+)(t|T)(|(<[^>]+>)+)(e|E)(|(<[^>]+>)+)(m|M))'
+                           '(\s+|&#160;|&nbsp;| </b><b>|(<[^>]+>)+|&#xA0;|&#xa0;)(|&nbsp;|&#xa0;|&#xA0;|&#160;|(<[^>]+>)+|\s+)'
+                           '(|(<[^>]+>)+)(1(|(<[^>]+>)+)(|\s+)(A|a)|1(|(<[^>]+>)+)(|\s+)(B|b)|2|3|4|5))')
+    
+    # Use finditer to match the regex
+    matches = pattern.finditer(document)
+
+    # Create a dataframe with start and end of each instance of Item 1A and Item 1B found
+    df = pd.DataFrame([(x.group(), x.start(), x.end()) for x in matches])
+    try:
+        df.columns = ['item', 'start', 'end']
+    except:
+        return 'ITEM 1A NOT FOUND'
+    df['item'] = df.item.str.lower()
+    
+    # Get rid of unnesesary characters from the dataframe
+    df.replace('&#160;',' ',regex=True,inplace=True)
+    df.replace('&nbsp;',' ',regex=True,inplace=True)
+    df.replace('&#xa0;',' ',regex=True,inplace=True)
+    #df.replace('</b><b>','',regex=True,inplace=True)
+    #df.replace('>tem','item',regex = True,inplace=True)
+    #df.replace('>em','item',regex = True,inplace=True)
+    df.replace('<[^>]+>','',regex = True,inplace = True)
+    df.replace(' ','',regex=True,inplace=True)
+    df.replace('\.','',regex=True,inplace=True)
+    df.replace('>','',regex=True,inplace=True)
+    df.replace('\n','',regex=True,inplace=True)
+    
+    #if no instance of item 1a found
+    if(not len(df[df.item == 'item1a'])):
+        return 'ITEM 1A NOT FOUND'
+    
+    #if several instances of item 1a are found, remove the ones that are after all the other items
+    #since won't know the end of item 1a in that case
+    if(len(df[df.item == 'item1a']) >= 2):
+        while((df[df.start == df.start.max()].item == 'item1a').values and (len(df[df.item == 'item1a']) >= 2)):
+            df = df[df.start != df.start.max()]
+
+    # Drop duplicates keeping the last 
+    df.sort_values('start', ascending = True, inplace = True)
+    df_unique = df.drop_duplicates(subset=['item'], keep='last').copy()
+    
+    #find the item that is right after item 1a
+    next_item = find_next_item(df_unique)
+         
+    if(next_item == 'NOT FOUND'):
+        return 'ITEM 1A NOT FOUND'
+    
+    # Set item as the dataframe index
+    df_unique.set_index('item', inplace=True)
+    
+    item_1a_raw, correct_item_found = extract_item_1a(df_unique, document, next_item)
+    
+    #if the the text identified does not seem to be correct
+    #we can test and see whether the previous instance that was found is the right one
+    if not correct_item_found:
+        if (len(df[df.item == 'item1a']) > 1):
+            #delete the bounds that were previously considered
+            df = pd.merge(df,df_unique, how = 'outer', indicator=True)
+            df = df[df._merge != 'both'].drop('_merge', axis=1).reset_index(drop=True)
+            
+            #if item 1a is now the last element, add back the previously considered bounds for the other items
+            if((df[df.start == df.start.max()].item == 'item1a').values):
+                df_unique = df_unique.reset_index()
+                df_unique = df_unique[df_unique.item != 'item1a']
+                df = pd.merge(df, df_unique, how = 'outer')
+
+            #re-exctract item 1a using the new bounds
+            df_unique = df.drop_duplicates(subset=['item'], keep='last').copy()
+            #find the item that is right after item 1a
+            next_item = find_next_item(df_unique)
+
+            if(next_item == 'NOT FOUND'):
+                return 'ITEM 1A NOT FOUND'
+
+            # Set item as the dataframe index
+            df_unique.set_index('item', inplace=True)
+
+            item_1a_raw, correct_item_found = extract_item_1a(df_unique, document, next_item)
+
+        if not correct_item_found:
+            return 'ITEM 1A NOT FOUND'
+    
+    #remove leading and trailing whitespaces
+    item_1a_raw = item_1a_raw.strip()
+    
+    return item_1a_raw
 
 
 #function that returns the vector representation of the input tokens using a trained model
@@ -347,12 +504,27 @@ def fast_sim(test_vector, tactic_vectors):
     return similarity
 
 
-#fucntion that calculates the alphas with respect to factor models
+#function that computes the cosine similarity between a test vector and the tactic vectors
+#uses numba for speed (for 1 firm, get_sim takes around 2 minutes, fast_sim takes around a second)
+def fast_sim_neg(test_vector, tactic_vectors):
+    similarity = []
+    test_vector = np.array(test_vector)
+    tactic_vectors = np.array(tactic_vectors)
+    for tactic_vector in tactic_vectors:
+        similarity.append(cos_sim(tactic_vector,test_vector)) #allows for negative similarity
+    return similarity
+
+
+#function that calculates the alphas with respect to factor models (quantile portfolios)
 def get_alphas(quintile_returns, FF5):
     table = pd.DataFrame(np.ones([4,6]), index = ['Excess return', 'CAPM alpha', 'FFC alpha','FF5 alpha'],
-                    columns = ['Q1 (low)', 'Q2', 'Q3', 'Q4', 'Q5 (high)', 'Q5-Q1'])
-    pval_table = table.copy()*np.nan
-    t_stat_table = table.copy()*np.nan
+                    columns = ['Q1 (low)', 'Q2', 'Q3', 'Q4', 'Q5 (high)', 'Q5-Q1'])*np.nan
+    pval_table = table.copy()
+    t_stat_table = table.copy()
+    #Sharpe, Treynor and Sortino ratio
+    Ratio_table = pd.DataFrame(np.ones([3,6]), index = ['Annualized Sharpe Ratio','Annualized Treynor Ratio',
+                                                     'Annualized Sortino Ratio'],
+                    columns = ['Q1 (low)', 'Q2', 'Q3', 'Q4', 'Q5 (high)', 'Q5-Q1'])*np.nan
     idx = quintile_returns.index
     FFC_factors = ['Mkt-RF','HML','SMB','UMD']
     FF5_factors = ['Mkt-RF','HML','SMB','RMW', 'CMA']
@@ -363,13 +535,17 @@ def get_alphas(quintile_returns, FF5):
         er = quintile_returns[f'quintile_{q}'].sub(FF5.loc[idx,'RF'],axis = 0)
         excess_ret.append(er)
         table.iloc[0,q] = er.mean()
-        pval_table.iloc[0,q] = sm.OLS(er,np.ones(len(idx))).fit(cov_type='HAC',cov_kwds={'maxlags':12}).pvalues.const
+        pval_table.iloc[0,q] = sm.OLS(er,np.ones(len(idx))).fit(cov_type='HAC',cov_kwds={'maxlags':12}).pvalues.const 
         t_stat_table.iloc[0,q] = sm.OLS(er,np.ones(len(idx))).fit(cov_type='HAC',cov_kwds={'maxlags':12}).tvalues.const
+        Ratio_table.iloc[0,q] = er.mean()/er.std() * np.sqrt(12)
+        downside_deviation = np.sqrt((er[er<0]**2).sum()/er.shape[0])
+        Ratio_table.iloc[2,q] = er.mean()/downside_deviation * np.sqrt(12)
         #CAPM alpha
         capm = sm.OLS(er,sm.add_constant(FF5.loc[idx, 'Mkt-RF'])).fit(cov_type='HAC',cov_kwds={'maxlags':12})
         table.iloc[1,q] = capm.params.const
         pval_table.iloc[1,q] = capm.pvalues.const
         t_stat_table.iloc[1,q] = capm.tvalues.const
+        Ratio_table.iloc[1,q] = er.mean()/capm.params['Mkt-RF'] * np.sqrt(12)
         #FFC alpha
         ffc = sm.OLS(er,sm.add_constant(FF5.loc[idx, FFC_factors])).fit(cov_type='HAC',cov_kwds={'maxlags':12})
         table.iloc[2,q] = ffc.params.const
@@ -387,11 +563,15 @@ def get_alphas(quintile_returns, FF5):
     table.iloc[0,5] = ls_er.mean()
     pval_table.iloc[0,5] = sm.OLS(ls_er,np.ones(len(idx))).fit(cov_type='HAC',cov_kwds={'maxlags':12}).pvalues.const
     t_stat_table.iloc[0,5] = sm.OLS(ls_er,np.ones(len(idx))).fit(cov_type='HAC',cov_kwds={'maxlags':12}).tvalues.const
+    Ratio_table.iloc[0,5] = ls_er.mean()/ls_er.std() * np.sqrt(12)
+    downside_deviation = np.sqrt((ls_er[ls_er<0]**2).sum()/ls_er.shape[0])
+    Ratio_table.iloc[2,5] = er.mean()/downside_deviation * np.sqrt(12)
     #CAPM alpha
     capm = sm.OLS(ls_er,sm.add_constant(FF5.loc[idx, 'Mkt-RF'])).fit(cov_type='HAC',cov_kwds={'maxlags':12})
     table.iloc[1,5] = capm.params.const
     pval_table.iloc[1,5] = capm.pvalues.const
     t_stat_table.iloc[1,5] = capm.tvalues.const
+    Ratio_table.iloc[1,5] = er.mean()/capm.params['Mkt-RF'] * np.sqrt(12)
     #FFC alpha
     ffc = sm.OLS(ls_er,sm.add_constant(FF5.loc[idx, FFC_factors])).fit(cov_type='HAC',cov_kwds={'maxlags':12})
     table.iloc[2,5] = ffc.params.const
@@ -403,7 +583,7 @@ def get_alphas(quintile_returns, FF5):
     pval_table.iloc[3,5] = ff5.pvalues.const
     t_stat_table.iloc[3,5] = ff5.tvalues.const
     
-    return table, pval_table, t_stat_table
+    return table, pval_table, t_stat_table, Ratio_table
 
 
 # function that implements the Gibbons-Ross-Shanken test
@@ -434,45 +614,152 @@ def standardize(input_):
     df = (df-np.mean(df.values))/np.std(df.values)
     return df
 
+
 #function that computes the t-stat and p value of a risk premium
 #used in Fama-Macbeth regressions
 def compute_stats(results):
     model_ = sm.OLS(results, np.ones(len(results))).fit(cov_type='HAC', cov_kwds={'maxlags': 12})
     return model_.tvalues[0],model_.pvalues[0]
 
+#function that computes cumulative returns from simple returns
+def cumulate_returns(group):
+    result = (group + 1).prod() - 1
+    return result
 
+#function that calculates the alphas with respect to factor models (tercile portfolios)
+def get_alphas_(quintile_returns, FF5):
+    table = pd.DataFrame(np.ones([4,4]), index = ['Excess return', 'CAPM alpha', 'FFC alpha','FF5 alpha'],
+                    columns = ['Q1 (low)', 'Q2', 'Q3 (high)', 'Q3-Q1'])*np.nan
+    pval_table = table.copy()
+    t_stat_table = table.copy()
+    #Sharpe, Treynor and Sortino ratio
+    Ratio_table = pd.DataFrame(np.ones([3,4]), index = ['Annualized Sharpe Ratio','Annualized Treynor Ratio',
+                                                     'Annualized Sortino Ratio'],
+                    columns = ['Q1 (low)', 'Q2', 'Q3 (high)', 'Q3-Q1'])*np.nan
+    idx = quintile_returns.index
+    FFC_factors = ['Mkt-RF','HML','SMB','UMD']
+    FF5_factors = ['Mkt-RF','HML','SMB','RMW', 'CMA']
+    
+    excess_ret = []
+    for q in range(3):
+        #excess returns
+        er = quintile_returns[f'quintile_{q}'].sub(FF5.loc[idx,'RF'],axis = 0)
+        excess_ret.append(er)
+        table.iloc[0,q] = er.mean()
+        pval_table.iloc[0,q] = sm.OLS(er,np.ones(len(idx))).fit(cov_type='HAC',cov_kwds={'maxlags':12}).pvalues.const
+        t_stat_table.iloc[0,q] = sm.OLS(er,np.ones(len(idx))).fit(cov_type='HAC',cov_kwds={'maxlags':12}).tvalues.const
+        Ratio_table.iloc[0,q] = er.mean()/er.std() * np.sqrt(12)
+        downside_deviation = np.sqrt((er[er<0]**2).sum()/er.shape[0])
+        Ratio_table.iloc[2,q] = er.mean()/downside_deviation * np.sqrt(12)
+        #CAPM alpha
+        capm = sm.OLS(er,sm.add_constant(FF5.loc[idx, 'Mkt-RF'])).fit(cov_type='HAC',cov_kwds={'maxlags':12})
+        table.iloc[1,q] = capm.params.const
+        pval_table.iloc[1,q] = capm.pvalues.const
+        t_stat_table.iloc[1,q] = capm.tvalues.const
+        Ratio_table.iloc[1,q] = er.mean()/capm.params['Mkt-RF'] * np.sqrt(12)
+        #FFC alpha
+        ffc = sm.OLS(er,sm.add_constant(FF5.loc[idx, FFC_factors])).fit(cov_type='HAC',cov_kwds={'maxlags':12})
+        table.iloc[2,q] = ffc.params.const
+        pval_table.iloc[2,q] = ffc.pvalues.const
+        t_stat_table.iloc[2,q] = ffc.tvalues.const
+        #FF5 alpha
+        ff5 = sm.OLS(er,sm.add_constant(FF5.loc[idx, FF5_factors])).fit(cov_type='HAC',cov_kwds={'maxlags':12})
+        table.iloc[3,q] = ff5.params.const
+        pval_table.iloc[3,q] = ff5.pvalues.const
+        t_stat_table.iloc[3,q] = ff5.tvalues.const
+    
+    #long-short portfolio
+    #excess returns
+    ls_er = excess_ret[-1].sub(excess_ret[0].values)
+    table.iloc[0,3] = ls_er.mean()
+    pval_table.iloc[0,3] = sm.OLS(ls_er,np.ones(len(idx))).fit(cov_type='HAC',cov_kwds={'maxlags':12}).pvalues.const
+    t_stat_table.iloc[0,3] = sm.OLS(ls_er,np.ones(len(idx))).fit(cov_type='HAC',cov_kwds={'maxlags':12}).tvalues.const
+    Ratio_table.iloc[0,3] = ls_er.mean()/ls_er.std() * np.sqrt(12)
+    downside_deviation = np.sqrt((ls_er[ls_er<0]**2).sum()/ls_er.shape[0])
+    Ratio_table.iloc[2,3] = er.mean()/downside_deviation * np.sqrt(12)
+    #CAPM alpha
+    capm = sm.OLS(ls_er,sm.add_constant(FF5.loc[idx, 'Mkt-RF'])).fit(cov_type='HAC',cov_kwds={'maxlags':12})
+    table.iloc[1,3] = capm.params.const
+    pval_table.iloc[1,3] = capm.pvalues.const
+    t_stat_table.iloc[1,3] = capm.tvalues.const
+    Ratio_table.iloc[1,3] = er.mean()/capm.params['Mkt-RF'] * np.sqrt(12)
+    #FFC alpha
+    ffc = sm.OLS(ls_er,sm.add_constant(FF5.loc[idx, FFC_factors])).fit(cov_type='HAC',cov_kwds={'maxlags':12})
+    table.iloc[2,3] = ffc.params.const
+    pval_table.iloc[2,3] = ffc.pvalues.const
+    t_stat_table.iloc[2,3] = ffc.tvalues.const
+    #FF5 alpha
+    ff5 = sm.OLS(ls_er,sm.add_constant(FF5.loc[idx, FF5_factors])).fit(cov_type='HAC',cov_kwds={'maxlags':12})
+    table.iloc[3,3] = ff5.params.const
+    pval_table.iloc[3,3] = ff5.pvalues.const
+    t_stat_table.iloc[3,3] = ff5.tvalues.const
+    
+    return table, pval_table, t_stat_table, Ratio_table
 
-#################################################################################################################################
-#################################################################################################################################
-#################################### Functions used in the event study ##########################################################
-#################################################################################################################################
-#################################################################################################################################
+################################################################################################################################
+################################################################################################################################
+#################################### Functions used in the event study #########################################################
+################################################################################################################################
+################################################################################################################################
 
 
 
 #function that takes a cusip and a start and end date and returns monthly returns for that cusip for 
 #all available dates between start and end date
 def get_returns_from_cusip(cusip, db, start_date, end_date):
-    Request = """select date, ret from crsp.dsf where cusip in ({})
+    Request = """select date, ret, shrout, prc from crsp.dsf where cusip in ({})
               and date >= '{}' and date <='{}'""".format("'{}'".format(cusip), start_date, end_date)
     data = db.raw_sql(Request)
     data.set_index('date', inplace = True)
     data.index = pd.to_datetime(data.index, format = '%Y-%m-%d')
+    
+    #there are months with several observations for some reason
+    data = data[~data.index.duplicated(keep='first')]
+    #calculate market cap
+    data['Market Cap'] = data['shrout']*1000*data['prc'].abs() #shrout in thousands
+    data.drop(columns = ['shrout', 'prc'], inplace = True)
+    
     #drop returns that are missing (==-66, -77, -88 or -99)
     missing_returns = [-66, -77, -88, -99]
     data = data[~np.isin(data.ret, missing_returns)]
     
-    data.columns = [cusip]
-    #return daily returns
-    return data
+    data.columns = [cusip, cusip]
+    #return daily returns and daily market cap
+    return data.iloc[:,0], data.iloc[:,1]
 
 
+#function that finds the divisor of y-x taht is the closest to the target value
+def find_closest_divisor(x, y, target):
+    # Calculate the absolute difference between y and x
+    diff = abs(y - x)
 
-#################################################################################################################################
-#################################################################################################################################
-#################################### Functions used for replicating Florackis et al##############################################
-#################################################################################################################################
-#################################################################################################################################
+    # Find all divisors of the difference using list comprehensions
+    divisors = [i for i in range(1, diff + 1) if diff % i == 0]
+
+    # Sort the divisors by their absolute difference to the target
+    divisors.sort(key=lambda divisor: abs(divisor - target))
+    
+    # The closest divisor is the first element in the sorted list
+    closest_divisor = divisors[0]
+    
+    return closest_divisor
+
+#function that computes the product of the consecutive non-null elements of a series
+def product_of_consecutive_non_nulls(series):
+    products = []
+
+    for i in range(len(series) - 2):
+        if not any(pd.isna(series.iloc[i:i+3])):
+            products.append((series.iloc[i:i+3]+1).product()-1)
+
+    return products
+
+
+################################################################################################################################
+################################################################################################################################
+#################################### Functions used for replicating Florackis et al ############################################
+################################################################################################################################
+################################################################################################################################
 
 #function that finds the url and filling date of a specified file for a given company and a given year among a list of 10-Ks
 @dask.delayed()
@@ -551,7 +838,7 @@ def find_risk_factors(url, ticker):
         return format_('ITEM 1A NOT FOUND',ticker)
     #df['item'] = df.item.str.lower()
     
-    # Get rid of unnesesary charcters from the dataframe
+    # Get rid of unnesesary characters from the dataframe
     df.replace('&#160;',' ',regex=True,inplace=True)
     df.replace('&nbsp;',' ',regex=True,inplace=True)
     df.replace('&#xa0;',' ',regex=True,inplace=True)
