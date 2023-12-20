@@ -47,6 +47,9 @@ Short description of the files:
 | Project_analysis1.ipynb | displays properties of the cyber risk scores, performs portfolio sorts and robustness tests|  
 | Project_analysis2.ipynb | performs Fama-Macbeth regressions, Bayesian factor model selection and instrumented principal component analysis | 
 | Project_analysis3.ipynb | compares my cyber risk measure to the one of [Florackis, Michaely and Weber](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3767307) and performs double sorts|
+| Project_analysis4.ipynb | displays properties of the cyber risk scores, performs portfolio sorts and robustness tests using a cyber risk score built on mean similarities|
+| Project_analysis5.ipynb | displays properties of the cyber risk scores, performs portfolio sorts and robustness tests using a cyber risk score that allows negative similarities|
+| Project_analysis6.ipynb | displays properties of the cyber risk scores, performs portfolio sorts and robustness tests using a cyber risk score built on only non Item 1A paragraphs|
 | tests/...  | folder containing test files (testing BERT, doc2vec,...) |
 
 
