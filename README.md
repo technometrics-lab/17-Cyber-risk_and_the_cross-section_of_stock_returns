@@ -13,7 +13,7 @@ Finally, using a Bayesian asset pricing method, I show that my cyber risk factor
 ------
 ## Documents
 For more information please refer to:
-- [the master thesis](Cyber_risk_thesis.pdf)
+- [the article](Cyber_risk___article.pdf)
 
 
 ------
@@ -50,6 +50,7 @@ Short description of the files:
 | Project_analysis4.ipynb | displays properties of the cyber risk scores, performs portfolio sorts and robustness tests using a cyber risk score built on mean similarities|
 | Project_analysis5.ipynb | displays properties of the cyber risk scores, performs portfolio sorts and robustness tests using a cyber risk score that allows negative similarities|
 | Project_analysis6.ipynb | displays properties of the cyber risk scores, performs portfolio sorts and robustness tests using a cyber risk score built on only non Item 1A paragraphs|
+| Project_analysis7.ipynb | displays properties of the cyber risk scores, performs portfolio sorts and robustness tests using a cyber risk score built on only Item 1A paragraphs|
 | tests/...  | folder containing test files (testing BERT, doc2vec,...) |
 
 
@@ -60,5 +61,5 @@ Each file contains more details and comments.
 ------
 ## Hints of bibliography:
 
-Please find the complete list on the bibliography of [the master thesis](Cyber_risk_thesis.pdf). 
+Please find the complete list on the bibliography of [the master thesis](Cyber_risk___article.pdf). 
 
