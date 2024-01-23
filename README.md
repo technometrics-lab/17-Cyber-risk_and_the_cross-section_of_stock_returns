@@ -5,10 +5,7 @@ Cyber risk and the cross-section of stock returns
 This study aims to build a cyber risk factor based on the 10-K disclosures of public firms and show that this factor is robust to all factors' benchmarks.
 ------
 ## Abstract
-In this thesis, I extract firms’ cyber risk with a machine learning algorithm measuring the proximity between their disclosures and a dedicated cyber corpus. This approach outperforms dictionary methods, is
-able to make use of the full disclosure and not only dedicated sections, and generates a cyber risk measure that is uncorrelated with other firms’ characteristics. I find that a portfolio of US-listed stocks 
-in the high cyber risk quantile generates an excess return of 18.72% p.a. Moreover, a long-short cyber risk portfolio has a significant and positive risk premium of 6.93% p.a., robust to all factors’ benchmarks.
-Finally, using a Bayesian asset pricing method, I show that my cyber risk factor is the essential feature that allows any multi-factor model to price the cross-section of stock returns.
+We extract firms’ cyber risk with a machine learning algorithm measuring the proximity between their disclosures and a dedicated cyber corpus. Our approach outperforms dictionary methods, uses full disclosure and not devoted-only sections, and generates a cyber risk measure uncorrelated with other firms’ characteristics. We find that a portfolio of US-listed stocks in the high cyber risk quantile generates an excess return of 18.72% p.a. Moreover, a long-short cyber risk portfolio has a significant and positive risk premium of 6.93% p.a., robust to all factors’ benchmarks. Finally, using a Bayesian asset pricing method, we show that our cyber risk factor is the essential feature that allows any multi-factor model to price the cross-section of stock returns.
 
 ------
 ## Documents
