@@ -607,6 +607,7 @@ def GRS(alphas, residuals, factors, for_barillas = False):
     p_value = 1 - f.cdf (GRS, N, T-N-K)
     return GRS, p_value
 
+
 #function that transforms a list into a dataframe and standardizes it
 #used in Fama-Macbeth regressions
 def standardize(input_):
