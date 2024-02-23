@@ -69,6 +69,7 @@ def get_url(line):
 
 
 #function that gets the descritions of cyber tactics from the MITRE ATT&CK website
+#url should be one of the MITRE tactics' on the MITRE website 
 def read_cyber_description(url):
     #read in the page and clean the text
     response = requests.get(url)
@@ -119,6 +120,13 @@ def read_cyber_description(url):
 
 
 #function that takes text as input and returns a list of tokennized sentences
+#text is the input text,
+#ticker is either the ticker of the firm whose 10-K the text is from or None,
+#raw is true if the text is unprosessed from a 10-k,
+#merge is True if you want to merge consecutive sentences (is the case for 10-Ks)
+#sentences is should only be false if the text is one sentence
+#find_item_1A_ is True if you want to also identify the limits of item 1A
+#sleep adds 0.5s of sleep (used when doing calling the function many times with raw data) 
 def get_tokens(text, ticker = None, raw = True, merge = True, sentences = True, find_item1A_ = False, sleep = True):
     #if the input is raw, extract the text
     if raw:
@@ -234,6 +242,8 @@ def get_tokens(text, ticker = None, raw = True, merge = True, sentences = True, 
 
 #function that takes a list of sentences and merges them to have paragraphs with a length
 #close to the desired length
+#sentences should be a list of sentences
+#ret_merge_list if True, returns a mapping of sentences that were merged 
 def merge_sentences(sentences, ret_merge_list = False):
     desired_len = 40 # = avg len of techniques and tactics
     avg_line_len = np.mean([len(t) for t in sentences], dtype = int)
@@ -269,6 +279,7 @@ def merge_sentences(sentences, ret_merge_list = False):
 
     
 #function that takes as input raw text from a 10-k statement and returns the cleaned text
+#find_item_1A_ also returns item 1A from the text if True
 def get_text(raw_text, find_item1A_ = False):
     #Regex to find <DOCUMENT> tags
     document_start_pattern = re.compile(r'<DOCUMENT>')
@@ -309,6 +320,7 @@ def get_text(raw_text, find_item1A_ = False):
         return document
 
 
+#fucntion that identifies item 1A from a raw 10-K
 def find_item1A(document):
     #we are interested in Item 1A risk factors
     #in the raw txt file it is either Item 1A, Item&#1601A,...
@@ -403,6 +415,10 @@ def find_item1A(document):
 
 
 #function that returns the vector representation of the input tokens using a trained model
+#model should be a trained gensim doc2vec model
+#tokens should be a list of words
+#tag is a string associated to the tokens
+#if words is true also return the words from the Tagged doc2vec document
 def get_vect(model, tokens, tag, words = False):
     sentence = gensim.models.doc2vec.TaggedDocument(tokens, [tag])
     model.random.seed(0)
@@ -476,7 +492,7 @@ def get_token_stats(path):
     return [nb_paragraphs, avg_paragraph_len]
 
 
-#function to calculate the cosine similarity between two vectors
+#function to calculate the cosine similarity between two vectors u and v
 #uses numba to speed up the calculations
 @jit(nopython = True)
 def cos_sim(u,v):
@@ -493,7 +509,7 @@ def cos_sim(u,v):
     return cos_theta
 
 
-#function that computes the cosine similarity between a test vector and the tactic vectors
+#function that computes the cosine similarity (only positive part) between a test vector and the tactic vectors
 #uses numba for speed (for 1 firm, get_sim takes around 2 minutes, fast_sim takes around a second)
 def fast_sim(test_vector, tactic_vectors):
     similarity = []
@@ -516,6 +532,8 @@ def fast_sim_neg(test_vector, tactic_vectors):
 
 
 #function that calculates the alphas with respect to factor models (quantile portfolios)
+#quintile returns should be a datdaframe containing a time series of returns
+#FF5 shoud be a dataframe containing the time series of returns of the FF5 factors
 def get_alphas(quintile_returns, FF5):
     table = pd.DataFrame(np.ones([4,6]), index = ['Excess return', 'CAPM alpha', 'FFC alpha','FF5 alpha'],
                     columns = ['Q1 (low)', 'Q2', 'Q3', 'Q4', 'Q5 (high)', 'Q5-Q1'])*np.nan
@@ -587,6 +605,10 @@ def get_alphas(quintile_returns, FF5):
 
 
 # function that implements the Gibbons-Ross-Shanken test
+#alphas should be a list of alphas,
+#residuals should be a dataframe of residuals
+#factors should a dataframe of the factors with nb_columns = nb_factors,
+#if for_barillas is True, returns the GRS statistic without multiplying with the constant
 def GRS(alphas, residuals, factors, for_barillas = False):
     T = residuals.shape[0] # number of time-series observations
     N = len(alphas) # number of portfolios
@@ -622,10 +644,12 @@ def compute_stats(results):
     model_ = sm.OLS(results, np.ones(len(results))).fit(cov_type='HAC', cov_kwds={'maxlags': 12})
     return model_.tvalues[0],model_.pvalues[0]
 
+
 #function that computes cumulative returns from simple returns
 def cumulate_returns(group):
     result = (group + 1).prod() - 1
     return result
+
 
 #function that calculates the alphas with respect to factor models (tercile portfolios)
 def get_alphas_(quintile_returns, FF5):
@@ -729,7 +753,7 @@ def get_returns_from_cusip(cusip, db, start_date, end_date):
     return data.iloc[:,0], data.iloc[:,1]
 
 
-#function that finds the divisor of y-x taht is the closest to the target value
+#function that finds the divisor of y-x that is the closest to the target value
 def find_closest_divisor(x, y, target):
     # Calculate the absolute difference between y and x
     diff = abs(y - x)
